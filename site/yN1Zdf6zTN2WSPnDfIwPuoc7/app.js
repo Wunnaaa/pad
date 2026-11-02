@@ -1,4 +1,4 @@
-/* Grok Bot desk dashboard — static, reads ./data/*.json written by the desk (PAPER only). No mock numbers. */
+/* Grok Bot desk dashboard — static, reads ./data/*.json written by the desk (PAPER desk + REAL read-only wallet, kept separate). No mock numbers. */
 (() => {
 "use strict";
 const $ = (s, el = document) => el.querySelector(s);
@@ -178,19 +178,47 @@ async function activity() {
    ${act && act.items.length ? act.items.map(actRow).join("") : `<div class="empty">No activity yet</div>`}</div></div>`;
 }
 
+const tz = ts => ts ? new Date(ts).toLocaleString("en-US", {timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}) + " ET" : "—";
+const amt = v => v == null ? "—" : Number(v).toLocaleString("en-US", {maximumSignificantDigits: 6});
+function realCard(r) {
+  if (!r) return `<div class="card real"><h3><span class="realtag">REAL — read-only</span></h3><div class="mut">No real-account snapshot yet</div></div>`;
+  const ok = r.status === "READ-ONLY (on-chain)", s = r.snapshot;
+  const head = `<div class="card real"><h3><span class="realtag">REAL — read-only</span> FOMO wallet</h3>
+    <div class="kv"><span>Status</span><span class="${ok ? "up" : "down"}">${esc(r.status)}</span></div>
+    ${ok ? "" : `<div class="kv"><span>Why</span><span>${esc(r.reason)}</span></div>`}
+    <div class="kv"><span>LIVE trading</span><span class="down">off</span></div>
+    ${r.address_short ? `<div class="kv"><span>Wallet</span><span>${esc(r.address_short)}</span></div>` : ""}`;
+  if (!s) return head + `<div class="mut" style="margin-top:8px">${r.address_short ? "Waiting for the first on-chain read." : "No wallet connected. Connect in Telegram: /connect_wallet &lt;address&gt;"}</div></div>`;
+  const hs = s.holdings.map(h => `<a class="row" href="${esc(h.link)}" target="_blank" rel="noopener noreferrer"><div class="l"><div class="t">${esc(h.symbol || h.mint.slice(0, 6))}</div><div class="sub">${amt(h.amount)} · ${h.price != null ? price(h.price) : "no price"}${h.program === "token-2022" ? " · Token-2022" : ""}</div></div><div class="r"><div class="v">${h.value_usd != null ? usd(h.value_usd) : "—"}</div></div></a>`).join("");
+  const tx = r.txs.map(x => { const parts = x.tokens.map(k => `${k.delta > 0 ? "+" : ""}${amt(k.delta)} ${k.symbol || k.mint.slice(0, 4)}`);
+    if (x.usdc) parts.push(`${x.usdc > 0 ? "+" : "-"}$${Math.abs(x.usdc).toFixed(2)} USDC`); if (x.sol) parts.push(`${x.sol > 0 ? "+" : ""}${x.sol.toFixed(4)} SOL`);
+    return `<div class="row"><div class="l"><div class="t">${esc(x.label)}${x.failed ? " (failed)" : ""}</div><div class="sub">${esc(parts.join(", ") || "no balance change")}</div></div><div class="r"><div class="v2">${tz(x.ts)}</div><div class="v2">${esc(x.sig_short)}</div></div></div>`; }).join("");
+  return head + `<div class="lbl" style="margin-top:10px">Real portfolio value</div><div class="big" style="font-size:32px">${usd(s.total_usd)}</div>
+    ${s.unpriced ? `<div class="note" style="padding:0">${s.unpriced} token(s) without a DexScreener price are not counted</div>` : ""}
+    <div class="kv"><span>SOL</span><span>${amt(s.sol)} · ${usd(s.sol_usd)}</span></div>
+    <div class="kv"><span>USDC</span><span>${usd(s.usdc)}</span></div>
+    <div class="kv"><span>Tokens held</span><span>${s.holdings.length}</span></div>
+    <div class="kv"><span>Last updated</span><span>${tz(s.read_at)}</span></div></div>
+    <div class="hdr"><h2>Real holdings <span class="realtag">REAL</span></h2></div><div class="feed realfeed">${hs || `<div class="empty">No tokens held</div>`}</div>
+    <div class="hdr"><h2>Real on-chain activity <span class="realtag">REAL</span></h2></div><div class="feed realfeed">${tx || `<div class="empty">No transactions read yet</div>`}</div>
+    <div class="note">${esc(r.source)}. ${esc(r.excluded)} The desk cannot trade this wallet. Disconnect: Telegram /disconnect_wallet.</div>`;
+}
+
 async function account() {
   setTab("account");
-  const [st, s, pos] = await Promise.all([get("settings.json"), get("summary.json"), get("positions.json")]);
+  const [st, s, pos, real] = await Promise.all([get("settings.json"), get("summary.json"), get("positions.json"), get("account_real.json")]);
   const groups = st ? st.settings : {};
   view.innerHTML = `<div class="fade"><div class="hdr"><h2>Account</h2></div>
+   ${realCard(real)}
+   <div class="hdr"><h2>Paper desk <span class="paper">PAPER</span></h2></div>
    <div class="card"><div class="kv"><span>Mode</span><span class="paper">PAPER</span></div>
-    <div class="kv"><span>Status</span><span>FOMO: no official API, trades are manual</span></div>
+    <div class="kv"><span>Status</span><span>Simulated trades on real market data</span></div>
     <div class="kv"><span>Paper stack</span><span>${s ? usd(s.balance) : "—"}</span></div>
     <div class="kv"><span>Free</span><span>${s ? usd(s.free) : "—"}</span></div>
     <div class="kv"><span>Realized P&amp;L</span><span class="${tone(s && s.realized)}">${s ? sUsd(s.realized) : "—"}</span></div>
     <div class="kv"><span>Open / closed</span><span>${pos ? pos.open.length + " / " + pos.closed.length : "—"}</span></div>
     <div class="kv"><span>Alerts</span><span>${esc(st ? st.notifier : "—")}</span></div></div>
-   ${pos && pos.closed.length ? `<div class="hdr"><h2>Closed paper trades</h2></div><div class="feed">${pos.closed.map(p => `<a class="row" href="#/coin/${encodeURIComponent(p.mint)}"><div class="l"><div class="t">${esc(p.symbol)}</div><div class="sub">${esc(p.exit_reason)} · ${dt(p.closed_at)}</div></div><div class="r"><div class="v ${tone(p.pnl_usd)}">${sUsd(p.pnl_usd)}</div><div class="v2">fees ${usd(p.fees_usd)}</div></div></a>`).join("")}</div>` : `<div class="empty">No paper trades yet</div>`}
+   ${pos && pos.closed.length ? `<div class="hdr"><h2>Closed paper trades <span class="paper">PAPER</span></h2></div><div class="feed">${pos.closed.map(p => `<a class="row" href="#/coin/${encodeURIComponent(p.mint)}"><div class="l"><div class="t">${esc(p.symbol)}</div><div class="sub">${esc(p.exit_reason)} · ${dt(p.closed_at)}</div></div><div class="r"><div class="v ${tone(p.pnl_usd)}">${sUsd(p.pnl_usd)}</div><div class="v2">fees ${usd(p.fees_usd)}</div></div></a>`).join("")}</div>` : `<div class="empty">No paper trades yet</div>`}
    <div class="hdr"><h2>Settings</h2></div>
    ${Object.entries(groups).map(([g, kv]) => `<div class="card"><h3 style="text-transform:capitalize">${esc(g)}</h3>${Object.entries(kv).map(([k, val]) => `<div class="kv"><span>${esc(k)}</span><span>${esc(typeof val === "boolean" ? (val ? "on" : "off") : val)}</span></div>`).join("")}</div>`).join("")}
    <div class="note">Settings are read-only here. Change them through the desk (Telegram /pause, /resume) or ask Grok Bot.</div></div>`;

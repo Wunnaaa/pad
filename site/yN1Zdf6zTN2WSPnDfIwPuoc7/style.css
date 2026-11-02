@@ -66,3 +66,6 @@ main{padding:0 0 calc(76px + var(--safe-b))}
 .agentlist{display:flex;flex-direction:column;gap:10px;padding:0 16px}
 .agentlist .agent{flex:none;min-height:0}
 .agentlist .agent .s{font-size:13px}
+.card.real{border-color:rgba(29,155,240,.55);background:rgba(29,155,240,.06)}
+.realtag{font-size:11px;font-weight:800;letter-spacing:.06em;color:#fff;background:var(--blue);padding:3px 8px;border-radius:999px;vertical-align:middle}
+.realfeed{border-left:3px solid var(--blue)}
