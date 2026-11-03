@@ -372,7 +372,7 @@ function realSignals(R) {
     <div class="kv"><span>Your on-chain trades</span><span>${sc.trades ?? 0}</span></div>
     <div class="kv"><span>Coins with a sell · wins</span><span>${sc.coins_with_sells ?? 0} · ${sc.wins ?? 0}</span></div>
     <div class="kv"><span>Realized P/L (avg cost)</span><span class="${tone(sc.realized_usd)}">${sUsd(sc.realized_usd ?? 0)}</span></div>
-    <div class="kv"><span>All-time wallet (before this mode)</span><span class="${tone(all.realized_usd)}">${all.trades ?? 0} trades · ${sUsd(all.realized_usd ?? 0)}</span></div>
+    <div class="kv"><span>All on-chain history read (estimate)</span><span class="${tone(all.realized_usd)}">${all.trades ?? 0} trades · ${sUsd(all.realized_usd ?? 0)}</span></div>
     <div class="note" style="padding:6px 0 0">${esc(sc.note || "")}</div></div>
    <div class="hdr"><h2>REAL ledger <span class="realtag">REAL · on-chain</span></h2></div>
    <div class="feed realfeed">${led.length ? led.map(x => `<div class="row"><div class="l"><div class="t">${esc(x.kind)} ${esc(x.tokens > 0 ? "+" : "")}${amt(x.tokens)}</div><div class="sub">${esc(x.mint.slice(0, 6))}… · tx ${esc(x.sig)}${x.signal_id ? " · matched signal #" + x.signal_id : ""}</div></div><div class="r"><div class="v">${x.usdc ? sUsd(x.usdc) + " USDC" : x.sol ? x.sol.toFixed(4) + " SOL" : "—"}</div><div class="v2">${dt(x.ts * 1000)}</div></div></div>`).join("") : `<div class="empty">No on-chain trades since REAL-SIGNALS started</div>`}</div>`;
