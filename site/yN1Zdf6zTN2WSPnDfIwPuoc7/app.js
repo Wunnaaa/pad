@@ -232,6 +232,7 @@ async function signals() {
    ${stale(sd.generated_at)}
    <div class="warnbox">${esc(sd.disclaimer)}</div>
    ${realSignals(sd.real_signals)}
+   ${gateBox(sd.gate)}
    <div class="hdr"><h2>Your real holdings <span class="realtag">REAL</span></h2></div>
    <div class="feed realfeed">${sd.real.length ? sd.real.map(r => `<a class="row" href="#/coin/${encodeURIComponent(r.mint)}"><div class="l"><div class="t">${actBadge(r.advice.action)} ${esc(r.symbol)}</div><div class="sub">${esc(r.advice.why)}</div></div><div class="r"><div class="v">${usd(r.value_usd)}</div><div class="v2 ${tone(r.pnl_pct)}">${r.pnl_pct == null ? "entry unknown" : pct(r.pnl_pct, 0)}</div></div></a>`).join("") : `<div class="empty">No real holdings advised yet</div>`}</div>
    <div class="note">REAL — suggestion, execute manually in FOMO. The desk cannot trade your wallet.</div>
@@ -376,6 +377,22 @@ function realSignals(R) {
     <div class="note" style="padding:6px 0 0">${esc(sc.note || "")}</div></div>
    <div class="hdr"><h2>REAL ledger <span class="realtag">REAL · on-chain</span></h2></div>
    <div class="feed realfeed">${led.length ? led.map(x => `<div class="row"><div class="l"><div class="t">${esc(x.kind)} ${esc(x.tokens > 0 ? "+" : "")}${amt(x.tokens)}</div><div class="sub">${esc(x.mint.slice(0, 6))}… · tx ${esc(x.sig)}${x.signal_id ? " · matched signal #" + x.signal_id : ""}</div></div><div class="r"><div class="v">${x.usdc ? sUsd(x.usdc) + " USDC" : x.sol ? x.sol.toFixed(4) + " SOL" : "—"}</div><div class="v2">${dt(x.ts * 1000)}</div></div></div>`).join("") : `<div class="empty">No on-chain trades since REAL-SIGNALS started</div>`}</div>`;
+}
+
+function gateBox(G) {
+  if (!G) return "";
+  const c = G.counts_24h || {}, st = s => s === "passed" ? "up" : s === "failed" ? "down" : "warn";
+  const run = r => `<details class="row gaterow"><summary><div class="l"><div class="t">${esc(r.symbol)} · <span class="${st(r.status)}">${esc(r.status)}</span></div><div class="sub">${r.status === "passed" ? "all " + r.checks.length + " checks passed" : esc((r.failed || "") + ": " + (r.reason || ""))}</div></div><div class="r"><div class="v2">${dt(r.ts)}</div></div></summary>
+     <div class="sub">${r.checks.map(x => `${x.state === "pass" ? "✓" : x.state === "fail" ? "✗" : x.state === "incomplete" ? "?" : "·"} ${esc(x.name)}${x.value ? ": " + esc(String(x.value)) : ""}`).join("<br>")}</div></details>`;
+  return `<div class="hdr"><h2>Telegram pre-send tests <span class="realtag">every coin</span></h2></div>
+   <div class="card"><div class="kv"><span>Rule</span><span>A coin is only named on Telegram after passing all ${G.checks.length} tests, re-run if older than ${G.max_age_s}s. Can't finish a test → not sent.</span></div>
+    <div class="kv"><span>Last 24h</span><span>${c.passed || 0} passed · ${c.failed || 0} failed · ${c.incomplete || 0} incomplete · ${G.queued} queued</span></div>
+    <div class="kv"><span>Never blocked</span><span>${esc(G.exempt)}</span></div>
+    <div class="note" style="padding:6px 0 0">Tests: ${G.checks.map(esc).join(" · ")}</div></div>
+   <div class="hdr"><h2>Not sent to Telegram</h2></div>
+   <div class="feed">${G.not_sent.length ? G.not_sent.map(a => `<div class="row"><div class="l"><div class="t">${esc(a.symbol || "?")} · ${esc(a.kind)}</div><div class="sub">${esc(a.why || "")}</div></div><div class="r"><div class="v2">${dt(a.ts)}</div></div></div>`).join("") : `<div class="empty">Nothing held back yet</div>`}</div>
+   <div class="hdr"><h2>Recent test runs</h2></div>
+   <div class="feed">${G.runs.length ? G.runs.map(run).join("") : `<div class="empty">No coin tested yet</div>`}</div>`;
 }
 
 async function route() {

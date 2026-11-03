@@ -87,3 +87,4 @@ table.bt th:first-child,table.bt td:first-child{text-align:left}
 .modebanner{position:sticky;top:calc(49px + var(--safe-t));z-index:4;background:#2a0c0f;border-bottom:1px solid var(--down);color:#ffd7da;font-size:13px;font-weight:600;padding:8px 16px;line-height:1.3}
 .modebanner .mut{color:#d9a5aa;font-weight:400}
 .sig .t .side{font-weight:800}.sig .t .side.BUY{color:var(--up)}.sig .t .side.SELL{color:var(--down)}.sig .t .side.TRIM{color:var(--warn)}
+.gaterow summary{display:flex;justify-content:space-between;cursor:pointer;list-style:none}.gaterow .sub{line-height:1.5}
