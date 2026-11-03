@@ -69,3 +69,16 @@ main{padding:0 0 calc(76px + var(--safe-b))}
 .card.real{border-color:rgba(29,155,240,.55);background:rgba(29,155,240,.06)}
 .realtag{font-size:11px;font-weight:800;letter-spacing:.06em;color:#fff;background:var(--blue);padding:3px 8px;border-radius:999px;vertical-align:middle}
 .realfeed{border-left:3px solid var(--blue)}
+
+.tgrow{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px}
+.tgb{flex:1 1 auto;text-align:center;padding:9px 12px;border-radius:999px;border:1px solid var(--line);color:var(--blue);font-weight:700;font-size:13px;background:var(--card)}
+.tgb.danger{color:var(--down);border-color:rgba(244,33,46,.45)}
+.warnbox .tgb{display:inline-block;margin-left:6px;padding:4px 10px;flex:none}
+.act{display:inline-block;font-size:11px;font-weight:800;padding:2px 7px;border-radius:6px;background:var(--card2);letter-spacing:.04em}
+.act.down{background:rgba(244,33,46,.16)}.act.up{background:rgba(0,186,124,.16)}.act.warn{background:rgba(255,159,10,.16)}
+.advice{font-weight:700;font-size:14px;margin:4px 0 8px}
+.homereal{display:block}
+table.bt{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}
+table.bt th,table.bt td{text-align:right;padding:5px 4px;border-bottom:1px solid var(--line)}
+table.bt th:first-child,table.bt td:first-child{text-align:left}
+.card.rules{font-size:14px;line-height:1.45}
