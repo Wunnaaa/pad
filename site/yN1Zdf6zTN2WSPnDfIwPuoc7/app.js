@@ -246,7 +246,7 @@ async function signals() {
    ${bt ? `<div class="card"><div class="lbl">${esc(bt.period || "")} · 5-min GeckoTerminal candles · fees $0.95/$47.50 each side + ${bt.assumptions.slippage_pct}% slippage each side</div>
     <table class="bt"><tr><th>Universe</th><th>n</th><th>win</th><th>avg win</th><th>avg loss</th><th>max DD</th></tr>
     ${Object.entries(bt.universes).map(([k, u]) => stRow(k + " · " + (u.label || ""), u)).join("")}</table>
-    ${bt.baseline ? `<div class="kv"><span>Baseline: buy first candle &amp; hold (A+B)</span><span class="${tone(bt.baseline.avg_pct)}">${pct(bt.baseline.avg_pct,1)} avg · ${(bt.baseline.win_rate*100).toFixed(0)}% up</span></div>` : ""}
+    ${bt.baseline ? `<div class="kv"><span>Baseline: buy first candle &amp; hold (A+B)</span><span class="${tone(bt.baseline.avg_pct)}">${bt.baseline.median_pct!=null?pct(bt.baseline.median_pct,1)+" median":pct(bt.baseline.avg_pct,1)+" avg"} · ${(bt.baseline.win_rate*100).toFixed(0)}% up</span></div>` : ""}
     <div class="advice">${esc(bt.verdict || "")}</div>
     ${(bt.caveats || []).map(x => `<div class="lv">• ${esc(x)}</div>`).join("")}</div>` : `<div class="empty">Backtest not run yet</div>`}
    <div class="hdr"><h2>Strategy rules</h2></div>
