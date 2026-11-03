@@ -117,6 +117,7 @@ async function home() {
   view.innerHTML = `<div class="fade">
    ${stale(s.generated_at)}
    ${s.goal && s.goal.hit ? `<div class="warnbox">Rule 5: goal ${usd(s.goal.usd, 0)} hit — the desk stopped buying and is waiting for you. ${tgBtn("goal", "Set a new goal")}</div>` : ""}
+   ${s.signal_mode === "REAL-SIGNALS" ? sizingBox(s.real_sizing) : ""}
    ${s.pause_all ? `<div class="warnbox">PAUSE ALL is on. No new coins or signals; Risk is still guarding open positions.</div>` : ""}
    <div class="sec"><div class="lbl">Paper balance · started at ${usd(s.start)}</div>
     <div class="big">${usd(s.balance)}</div>
@@ -230,13 +231,14 @@ async function signals() {
   view.innerHTML = `<div class="fade"><div class="hdr"><h2>Signals</h2></div>
    ${stale(sd.generated_at)}
    <div class="warnbox">${esc(sd.disclaimer)}</div>
+   ${realSignals(sd.real_signals)}
    <div class="hdr"><h2>Your real holdings <span class="realtag">REAL</span></h2></div>
    <div class="feed realfeed">${sd.real.length ? sd.real.map(r => `<a class="row" href="#/coin/${encodeURIComponent(r.mint)}"><div class="l"><div class="t">${actBadge(r.advice.action)} ${esc(r.symbol)}</div><div class="sub">${esc(r.advice.why)}</div></div><div class="r"><div class="v">${usd(r.value_usd)}</div><div class="v2 ${tone(r.pnl_pct)}">${r.pnl_pct == null ? "entry unknown" : pct(r.pnl_pct, 0)}</div></div></a>`).join("") : `<div class="empty">No real holdings advised yet</div>`}</div>
    <div class="note">REAL — suggestion, execute manually in FOMO. The desk cannot trade your wallet.</div>
    <div class="hdr"><h2>Watching for entries <span class="paper">PAPER</span></h2></div>
    ${sd.goal.hit ? `<div class="warnbox">Rule 5: goal ${usd(sd.goal.usd, 0)} hit — no new buys. ${tgBtn("goal", "Set a new goal")}</div>` : ""}
    <div class="feed">${sd.watch.length ? sd.watch.map(w => `<a class="row" href="#/coin/${encodeURIComponent(w.mint)}"><div class="l"><div class="t">${esc(w.symbol)} <span class="mut" style="font-weight:400">${esc(w.status)}</span></div><div class="sub">${esc((w.reasons || []).join(" · ") || "not checked yet")}</div></div><div class="r"><div class="v2">${w.levels ? "stop " + price(w.levels.stop) : ""}</div><div class="v2">${ago(w.last_check)}</div></div></a>`).join("") : `<div class="empty">Nothing on the watchlist. Coins appear here after passing the Auditor (8/8) and the Analyst.</div>`}</div>
-   <div class="hdr"><h2>Forward test <span class="paper">PAPER</span></h2></div>
+   <div class="hdr"><h2>PAPER scorecard (forward test, for comparison) <span class="paper">PAPER</span></h2></div>
    <div class="card"><div class="kv"><span>Closed strategy trades</span><span>${fw.trades}</span></div>
     <div class="kv"><span>Open</span><span>${fw.open}</span></div>
     <div class="kv"><span>Win rate</span><span>${fw.win_rate == null ? "—" : (fw.win_rate*100).toFixed(0) + "%"}</span></div>
@@ -312,7 +314,10 @@ async function account() {
    ${stale(s && s.generated_at)}
    ${realCard(real)}
    <div class="hdr"><h2>Paper desk <span class="paper">PAPER</span></h2></div>
-   <div class="card"><div class="kv"><span>Mode</span><span class="paper">PAPER</span></div>
+   <div class="card"><div class="kv"><span>Signal mode</span><span class="paper ${s && s.signal_mode === "REAL-SIGNALS" ? "realmode" : ""}">${esc(s ? s.signal_mode : "—")}</span></div>
+    <div class="kv"><span>Real account</span><span>${esc(s ? s.account_status : "—")}</span></div>
+    <div class="kv"><span>Execution</span><span>${esc(s ? s.execution : "—")}</span></div>
+    <div class="kv"><span>Paper engine</span><span class="paper">PAPER</span></div>
     <div class="kv"><span>Status</span><span>Simulated trades on real market data</span></div>
     <div class="kv"><span>Paper stack</span><span>${s ? usd(s.balance) : "—"}</span></div>
     <div class="kv"><span>Free</span><span>${s ? usd(s.free) : "—"}</span></div>
@@ -326,7 +331,55 @@ async function account() {
    <div class="note">Settings are read-only here. Change them in Telegram (buttons above open @${BOT}) or ask Grok Bot.</div></div>`;
 }
 
+async function modeHeader() {
+  const s = await get("summary.json");
+  const tag = $("#modetag"), ban = $("#modebanner");
+  if (!s || !tag) return;
+  const real = s.signal_mode === "REAL-SIGNALS";
+  tag.textContent = real ? "REAL SIGNALS" : "PAPER";
+  tag.classList.toggle("realmode", real);
+  tag.title = real ? s.banner : "Simulated trades on real market data";
+  document.title = "Grok Bot · Desk (" + (real ? "REAL SIGNALS — manual" : "PAPER") + ")";
+  ban.hidden = !real;
+  if (real) ban.innerHTML = `${esc(s.banner)} <span class="mut">· Account ${esc(s.account_status)} · LIVE auto-trading off</span>`;
+}
+const sizingBox = z => !z ? "" : z.status === "insufficient" || z.status === "no_balance"
+  ? `<div class="warnbox"><b>REAL buy sizing: ${esc(z.text)}.</b> BUY signals arrive as “insufficient balance — deposit needed” until your wallet holds at least ${usd(z.min_ticket)} USDC.<div class="mut" style="font-size:12px;margin-top:4px">${esc(z.min_ticket_note || "")}</div></div>`
+  : `<div class="card real"><div class="kv"><span>REAL buy sizing</span><span>${esc(z.text)}</span></div></div>`;
+const sigRow = r => {
+  const z = r.sizing || {};
+  const amt = r.suggested_usd ? usd(r.suggested_usd) : (z.status === "insufficient" ? "deposit needed" : "no size");
+  const st = r.status === "confirmed" ? `<span class="up">confirmed on-chain${r.confirmed_sig_short ? " · tx " + esc(r.confirmed_sig_short) : ""}</span>`
+    : r.status === "not_seen" ? `<span class="warn">not seen on-chain</span>` : r.status === "tapped" ? `<span class="warn">you tapped ${esc(r.tapped)} — checking chain</span>`
+    : esc(r.status === "insufficient" ? "insufficient balance — deposit needed" : r.status);
+  return `<a class="row sig" href="${esc(r.link)}" target="_blank" rel="noopener noreferrer"><div class="l"><div class="t"><span class="side ${esc(r.side)}">${esc(r.side)}</span> ${esc(r.name)}</div><div class="sub" style="white-space:normal;max-width:none">${esc(r.reason)}<br>stop ${price(r.stop)}${r.tp1 ? " · TP1 " + price(r.tp1) + " · TP2 " + price(r.tp2) : ""} · ${st}</div></div><div class="r"><div class="v">${amt}</div><div class="v2">${ago(r.ts)}</div></div></a>`;
+};
+function realSignals(R) {
+  if (!R) return "";
+  const sc = (R.ledger && R.ledger.score) || {}, led = (R.ledger && R.ledger.rows) || [], all = R.ledger_all || {};
+  const on = R.mode === "REAL-SIGNALS";
+  return `<div class="hdr"><h2>REAL signals <span class="realtag">REAL</span></h2></div>
+   ${on ? "" : `<div class="warnbox">Signal mode is PAPER — no REAL signals are sent. Send /mode real in Telegram to switch. ${tgBtn("mode", "Mode in Telegram")}</div>`}
+   ${sizingBox(R.sizing)}
+   ${R.goal && R.goal.hit ? `<div class="warnbox">Rule 5 (REAL): goal ${usd(R.goal.usd, 0)} hit — no BUY signals until you set a new one. ${tgBtn("goal", "Goal")}</div>` : ""}
+   <div class="card real"><div class="kv"><span>Account</span><span>${esc(R.account_status)}</span></div>
+    <div class="kv"><span>Execution</span><span>you, manually in FOMO · desk never trades</span></div>
+    <div class="kv"><span>REAL goal (rule 5)</span><span>${R.goal && R.goal.usd ? usd(R.goal.usd, 0) + (R.goal.hit ? " · HIT" : "") : "not set — /goal real &lt;usd&gt;"}</span></div></div>
+   <div class="feed realfeed">${R.signals.length ? R.signals.map(sigRow).join("") : `<div class="empty">No REAL signals yet. BUY signals need a confirmed entry that passes rules 1-3; SELL/TRIM signals come from your real holdings.</div>`}</div>
+   <div class="hdr"><h2>REAL scorecard <span class="realtag">REAL · on-chain</span></h2></div>
+   <div class="card real"><div class="kv"><span>Since REAL-SIGNALS started</span><span>${sc.since ? dt(sc.since) : "—"}</span></div>
+    <div class="kv"><span>Signals sent / confirmed on-chain</span><span>${sc.signals ?? 0} / ${sc.confirmed ?? 0}</span></div>
+    <div class="kv"><span>Your on-chain trades</span><span>${sc.trades ?? 0}</span></div>
+    <div class="kv"><span>Coins with a sell · wins</span><span>${sc.coins_with_sells ?? 0} · ${sc.wins ?? 0}</span></div>
+    <div class="kv"><span>Realized P/L (avg cost)</span><span class="${tone(sc.realized_usd)}">${sUsd(sc.realized_usd ?? 0)}</span></div>
+    <div class="kv"><span>All-time wallet (before this mode)</span><span class="${tone(all.realized_usd)}">${all.trades ?? 0} trades · ${sUsd(all.realized_usd ?? 0)}</span></div>
+    <div class="note" style="padding:6px 0 0">${esc(sc.note || "")}</div></div>
+   <div class="hdr"><h2>REAL ledger <span class="realtag">REAL · on-chain</span></h2></div>
+   <div class="feed realfeed">${led.length ? led.map(x => `<div class="row"><div class="l"><div class="t">${esc(x.kind)} ${esc(x.tokens > 0 ? "+" : "")}${amt(x.tokens)}</div><div class="sub">${esc(x.mint.slice(0, 6))}… · tx ${esc(x.sig)}${x.signal_id ? " · matched signal #" + x.signal_id : ""}</div></div><div class="r"><div class="v">${x.usdc ? sUsd(x.usdc) + " USDC" : x.sol ? x.sol.toFixed(4) + " SOL" : "—"}</div><div class="v2">${dt(x.ts * 1000)}</div></div></div>`).join("") : `<div class="empty">No on-chain trades since REAL-SIGNALS started</div>`}</div>`;
+}
+
 async function route() {
+  modeHeader();
   const h = location.hash.replace(/^#\/?/, "") || "home";
   const [name, arg] = h.split("/");
   window.scrollTo(0, 0);
